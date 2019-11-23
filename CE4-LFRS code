@@ -1,1 +1,171 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 15 10:41:08 2019
 
+@author: liuchendi
+"""
+import numpy as np
+from matplotlib import pyplot as plt
+    
+    
+#get the 7th and 6th bit of the bit,return the model       
+def get_Bit76(bit): 
+    switcher = { 
+    "01" : "第一通道 B 天线",
+    "10" : "第二通道 A 天线",
+    "11" : "第三通道 C 天线",
+    "00" : "第四通道 D 天线"
+    } 
+    return switcher.get(bit, "Unknown")
+
+
+#get the 5th and 4th bit of the bit,return the model
+def get_Bit54(bit): 
+    switcher = { 
+    "01" : "时域数据",
+    "10" : "频域数据"
+    } 
+    return switcher.get(bit, "Unknown")
+
+
+#get the 3rd and 2nd bit of the bit,return the model
+def get_Bit32(bit): 
+    switcher = { 
+    "01" : "低频工作频段",
+    "10" : "高频工作频段",
+    "11" : "时域 2 bit组合数据"
+    } 
+    return switcher.get(bit, "Unknown") 
+
+
+#get the 1st and 2nd bit of the bit, return the model
+def get_Bit10(bit): 
+    switcher = { 
+    "00" : "时域原始数据",
+    "01" : "FFT 实部",
+    "10" : "FFT 虚部",
+    "11" : "FFT 取模结果"
+    } 
+    return switcher.get(bit, "Unknown")
+
+
+#get the working mode of the LFRS
+def getStrWorkingMode(hexmode): 
+    switcher = { 
+        "0x146FCCCC": "内定标工作模式", 
+        "0x146FA2A2": "频谱巡查工作模式-2通道", 
+        "0x146FA4A4": "频谱巡查工作模式-4通道", 
+        "0x146FBBBB": "三天线工作模式",
+        "0x146FE4E4": "时域工作模式-2通道",
+        "0x146FE2E2": "时域工作模式-4通道",
+        "0x146FFFFF": "时域和频域对比工作模式"
+    } 
+    return switcher.get(hexmode, "Unknown working mode")
+    
+#unfold science data label
+#input parameters:
+#sciDataLabels:science data labels
+#return science data label string
+def unfoldSciDataLabels(sciDataLabels):
+    bstr = bin(sciDataLabels)# "0b111 0000"
+    print(bstr)
+    bstr = bstr[2:]
+    if len(bstr) < 8:
+        bstr = "0"*(8-len(bstr))+bstr
+    sciDataLabelsStr = "{}, {}, {}, {}".format(get_Bit76(bstr[0:2]),get_Bit54(bstr[2:4]),get_Bit32(bstr[4:6]),get_Bit10(bstr[6:8]))
+    return sciDataLabelsStr
+
+
+#return multiple 
+def multiInt2hex(inttuple):
+    return "0x"+("%.2X"*len(inttuple))%(inttuple)
+
+
+#each data point contains 16 bits, H8+L8, we only read 8 bits each time,so we need to combine every 2 bytes to a real data
+def gen2bytesScidata(ScientificData,sampleN,sciData):
+    for i in range(0,int(sampleN)):
+        # combine scidata_in1byte[i] -- H and scidata_in1byte[i+1] -- L
+        temp = multiInt2hex((ScientificData[i*2],ScientificData[i*2+1]))
+        sciData.append(int(temp,16))
+    return sciData
+
+
+#plot time signal  
+def plotTimeSignal(data, title="title",xlabel="xlabel",ylabel="ylabel"):
+    plt.plot(data)
+    plt.title(title)    
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+
+#test the function
+def test():
+    f = open("/Users/liuchendi/Desktop/LFRS/1/0b/CE4-La_GRAS_LFRS-TR_SCI_N_20190103162658_20190103163114_0015_A.0B", 'rb', True)
+    #f = open("/Users/liuchendi/Desktop/LFRS/1/0b/CE4-La_GRAS_LFRS-CA_SCI_N_20190106022208_20190106022708_0015_A.0B", 'rb', True) 
+    #f = open("/Users/liuchendi/Desktop/LFRS/1/0b/CE4-La_GRAS_LFRS-SU_SCI_N_20190108133740_20190108140405_0016_A.0B", 'rb', True)
+    #    f = open("/Users/liuchendi/Desktop/LFRS/1/0b/CE4-La_GRAS_LFRS-SU_SCI_N_20190108135001_20190108144106_0016_A.0B", 'rb', True)
+    #f = open("/Users/liuchendi/Desktop/LFRS/1/0b/CE4-La_GRAS_LFRS-TF_SCI_N_20190108133545_20190108133545_0016_A.0B", 'rb', True)
+    rawdata = f.read()
+    f.close()
+      
+    if rawdata[72]==170:
+        sampleN = 1024*2
+    elif rawdata[72]==187:
+        sampleN = 2048*2
+    elif rawdata[72]==204:
+        sampleN = 3072*2
+    elif rawdata[72]==221:
+        sampleN = 4096*2
+    class data(object):
+        roadSign = rawdata[0:4]
+        versionNumber = rawdata[4]
+        platformTimeCode = rawdata[5:11]
+        localTtimeCode = rawdata[11:17]
+        PositiveTwelveVoltageTelemetry = rawdata[17]
+        PositiveAndNegativeThreePointThreeVoltageTelemetry = rawdata[18]
+        PositiveThreePointThreeVoltageTelemetry = rawdata[19]
+        PositiveOnePointEightVoltageTelemetry = rawdata[20]
+        ReceiverTemperatureTelemetry = rawdata[21]
+        PositiveFifteenVoltageTelemetry = rawdata[22]
+        ControllerTemperatureTelemetry = rawdata[23]
+        CrystalTemperatureTelemetry = rawdata[24]
+        OperatingMode = rawdata[25]
+        NoiseSourcePlusPowerOffState = rawdata[26]
+        ReceiverPlusPowerOffState = rawdata[27]
+        SendAndReceiveChipMasterSlaveSwitch = rawdata[28]
+        InternalCalibrationSwitch = rawdata[29]
+        ChannelOneGain = rawdata[30]
+        ChannelTwoGain = rawdata[31]
+        ChannelThreeGain = rawdata[32]
+        ChannelFourGain = rawdata[33]
+        ChannelNumberSelection = rawdata[34]
+        OperatingHours = rawdata[37:39]
+        TimeDomainCenterFrequency = rawdata[39:41]
+        LVDSEdgeSelection = rawdata[41]
+        ParameterInjectionCount = rawdata[43]
+        ParameterExecutionCount = rawdata[44]
+        ParameterInjectionStatusRegister = rawdata[45]
+        LearningDataTransmissionCount = rawdata[46]
+        ScientificDataIdentification = rawdata[47]
+        FFTDynamicTruncationValue = rawdata[48]
+        TransmissionPhase = rawdata[49]
+        AcquisitionTimeHighByte = rawdata[50]
+        AcquisitionTimeLowByte = rawdata[51]
+        TimeDomainModeMeanAndRMSValue = rawdata[52:68]
+        TimeDomainModeCompensatesForRealValue = rawdata[68:70]
+        TimeDomainModeCompensatesForImaginaryValues = rawdata[70:72]
+        CollectionPoints = rawdata[72]
+        DCMLockSign = rawdata[73]
+        DCMResetTimes = rawdata[74]
+        FIFOIdentification = rawdata[75]
+        DataLength = rawdata[76:78]
+        ScientificData = rawdata[78:78+sampleN]
+        QualityInformation = rawdata[78+sampleN]
+    working_mode = multiInt2hex(tuple(data.roadSign))
+    print(getStrWorkingMode(working_mode))
+    print(unfoldSciDataLabels(data.ScientificDataIdentification))
+    sciData = []
+    sciData = gen2bytesScidata(data.ScientificData,sampleN/2,sciData)
+    sciData = np.array(sciData)
+    plotTimeSignal(sciData/8192,"Science Data,Sample Number = "+str(sampleN/2),"Number of point","volt(V)")
